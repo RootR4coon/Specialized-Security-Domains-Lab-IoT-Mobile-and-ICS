@@ -1,18 +1,31 @@
-# IoT Findings
+# Mobile Findings
 
-Detailed methodology and evidence: [docs/01-iot.md](../docs/01-iot.md).
+Detailed methodology and evidence: [docs/02-mobile.md](../docs/02-mobile.md).
 
 | ID | Title | Severity | Key evidence | Recommendation |
 |---|---|---|---|---|
-| IOT-01 | Weak password hashing algorithm (MD5-crypt) in `etc/shadow` for `root` and `iotgoatuser` | High | `05-iot-passwd-shadow.png` | Use modern salted, expensive hashes (SHA-512-crypt, bcrypt, Argon2); per-device credential rotation |
-| IOT-02 | Default credential recovered: `iotgoatuser` cracked in under one second with the Mirai wordlist | Critical | `14-JohnTheRipper.png`, `15-PasswordCRACKED.png` | Never ship default credentials; force change on first boot; disable test accounts |
-| IOT-03 | Hardcoded secrets, config files, and startup services in firmware image | TBD | `09-iot-search-secrets.png`, `10-iot-init-scripts.png` | Remove unnecessary services; no plaintext secrets in images; hardware-backed key storage |
-| IOT-04 | MQTT broker accepts unauthenticated, unencrypted connections by default | High | `10-iot-mosquitto-subscriber.png`, `11-iot-wireshark-mqtt-plaintext.png` | TLS on 8883, `allow_anonymous false`, per-client credentials (verified in Section 1.4) |
+| MOB-01 | MobSF static analysis of DIVA completed | TBD | `17-mobile-mobsf-home.png`, `20-mobile-mobsf-scoreboard.png` | Complete the per-section table in docs/02-mobile.md |
+| MOB-02 | Frida server and client communication confirmed with emulator | Informational | `24-mobile-frida-ps.png` | N/A (setup verification) |
+| MOB-03 | Objection session established against UnCrackable Level 1; root detection confirmed | Informational | `19-mobile-uncrackable.png` | Follow official MASTG write-up for the hidden-secret exercise |
+| MOB-04 | Drozer client installed and console connected to Agent | Informational | `22-mobile-drozer-client.png`, `23-mobile-drozer-connected.png` | Complete exported-component counts |
 
-## Control verification
+## Authentication review checklist
 
-| Test | Result |
+| Checklist item | Finding |
 |---|---|
-| Anonymous publish on 8883 | Rejected, as expected |
-| Authenticated publish with `--cafile` and `-u` | Succeeded |
-| Wireshark on `tcp.port == 8883` | Payload unreadable TLS Application Data |
+| Credentials stored in plain text | [fill in] |
+| Credentials written to logs | [fill in] |
+| Hardcoded keys or tokens in code | [fill in] |
+| Login works without server-side validation | [fill in] |
+| Sensitive data copied to clipboard or backups | [fill in] |
+
+## MASVS mapping
+
+| MASVS Area | Secure Practice |
+|---|---|
+| Storage | Android Keystore and encrypted storage; never plain text |
+| Crypto | Modern algorithms; no hardcoded keys |
+| Auth | Server-side validation; short-lived tokens; biometric prompts |
+| Network | TLS with certificate validation; disable cleartext traffic |
+| Platform | No unnecessary exported components; `allowBackup=false` |
+| Resilience | Disable debugging in release builds |
