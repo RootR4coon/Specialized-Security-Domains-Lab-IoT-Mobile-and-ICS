@@ -1,90 +1,166 @@
-# Specialized Security Domains Lab: IoT, Mobile, and ICS
+# 1. IoT Security
 
-A hands-on defensive security assessment across three domains — Internet of Things (IoT), Mobile, and Industrial Control Systems (ICS) — performed against intentionally vulnerable training targets and simulated devices in an isolated lab environment.
+Back to [README](../README.md). Findings table: [notes/iot-findings.md](../notes/iot-findings.md).
 
-## Executive Summary
+## 1.1 Shodan Exposure Assessment (Passive)
 
-The assessment produced eight documented findings across three domains. The highest-impact results:
+Search query: `product:mosquitto`
 
-- **Critical (IoT):** A default credential for the training firmware's `iotgoatuser` account was recovered in under one second from the extracted `/etc/shadow` using the leaked Mirai botnet wordlist, demonstrating why firmware-wide default credentials remain the dominant IoT compromise vector.
-- **High (IoT):** The firmware uses MD5-crypt password hashing, and MQTT traffic (including door-lock state) is readable in plain text until TLS and authentication are enabled.
-- **High (ICS):** Modbus write commands are accepted with zero authentication or encryption; only the honeypot's internal memory map prevented a successful write.
-- **High (ICS, tooling):** Docker Desktop for macOS silently fails to enforce loopback-only binding on port-remapped publishes. A control believed in place (network isolation) was absent for two of three published ports and was only discovered through independent external verification. See [Finding ICS-01](docs/03-ics.md#finding-ics-01-docker-desktop-for-macos-fails-to-enforce-loopback-only-binding-on-port-remapped-publishes).
-
-Full findings tables: [notes/](notes/). Detailed methodology and evidence: [docs/](docs/).
-
-## Rules of Engagement
-
-- Only systems owned or explicitly authorized for testing were used.
-- Shodan was used passively only: searching and reading summary statistics, with no login, scanning, or interaction with any listed device.
-- All honeypots and vulnerable applications were kept isolated from the internet, bound to loopback or a host-only network.
-
-## Lab Environment
-
-| Component | Details |
+| Item | Result |
 |---|---|
-| Host | macOS, Docker Desktop |
-| VM / secondary host | Kali Linux (used for cross-machine network exposure testing) |
-| IoT target | OWASP IoTGoat firmware (Raspberry Pi 2 image) |
-| IoT protocol target | Eclipse Mosquitto MQTT broker |
-| Mobile targets | DIVA (Damn Insecure and Vulnerable App), OWASP MASTG UnCrackable Level 1 |
-| Mobile emulator | Android Studio AVD, Pixel device, Google APIs system image |
-| ICS target | Conpot honeypot (simulated Siemens S7-300 PLC), Docker image `honeynet/conpot` |
+| Total result count | [fill in from your screenshot] |
+| Top 3 countries | [fill in from Top Countries panel] |
+| Own public IP search result | [fill in — exposed or nothing found] |
 
-Setup and tooling reference: [docs/setup.md](docs/setup.md).
+**Risk note:** Default ports with no authentication allow any internet-wide scanner, not just a targeted attacker, to discover and potentially interact with exposed IoT devices at scale. This is the same exposure pattern that allowed the Mirai botnet to compromise large numbers of devices automatically.
 
-## Status Summary
+![Figure: Shodan search results for product:mosquitto, showing total count and Top Countries panel.](../screenshots/01-iot/01-iot-shodan-mosquitto-results.png)
+*Figure: Shodan search results for product:mosquitto, showing total count and Top Countries panel.*
 
-| # | Task | Status |
-|---|---|---|
-| 1 | Shodan statistics recorded (passive only) | Complete |
-| 2 | Firmware extracted and findings listed | Complete |
-| 3 | MQTT traffic captured in plain text | Complete |
-| 4 | MQTT secured with authentication and TLS | Complete |
-| 5 | MobSF report generated and reviewed | Complete |
-| 6 | Frida server running and Objection connected | Complete |
-| 7 | Drozer attack surface listed | Complete |
-| 8 | Conpot running and scanned | Complete |
-| 9 | Modbus traffic captured and write filter created | Complete |
-| 10 | Zone and conduit table completed | Complete |
+## 1.2 Firmware Analysis (OWASP IoTGoat)
 
-## Documentation
+**Target:** `IoTGoat-raspberry-pi2.img`, obtained from the OWASP IoTGoat GitHub Releases page.
 
-| Section | Contents |
-|---|---|
-| [IoT Security](docs/01-iot.md) | Shodan exposure assessment, IoTGoat firmware analysis, MQTT testing and controls |
-| [Mobile Security](docs/02-mobile.md) | MobSF static analysis, Frida/Objection dynamic testing, Drozer component audit, MASVS mapping |
-| [ICS Security](docs/03-ics.md) | Conpot deployment, Modbus/S7comm analysis, Docker Desktop binding finding, IEC 62443 controls, NIST SP 800-82 assessment |
-| [Setup Reference](docs/setup.md) | Environment preparation and tool verification |
-| [Screenshot Inventory](docs/screenshot-inventory.md) | Original-to-target filename mapping for all evidence |
+**Identification (`binwalk`):** Identified a flattened device tree and a SquashFS filesystem at offset `29360128` (`0x1C00000`), little endian, version 4.0, xz compression, 3,946,402 bytes, 1,333 inodes, blocksize 262,144 bytes, created 2019-01-30.
 
-## Findings Index
+![Figure: binwalk output identifying the Linux kernel and SquashFS filesystem inside the firmware image.](../screenshots/01-iot/03-iot-binwalk-identify.png)
+*Figure: binwalk output identifying the Linux kernel and SquashFS filesystem inside the firmware image.*
 
-| ID | Domain | Title | Severity |
-|---|---|---|---|
-| IOT-01 | IoT | Weak password hashing algorithm (MD5-crypt) | High |
-| IOT-02 | IoT | Default credential recovered (Mirai wordlist) | Critical |
-| IOT-03 | IoT | Hardcoded secrets, configuration files, and startup services | TBD |
-| IOT-04 | IoT | MQTT broker accepts unauthenticated, unencrypted connections by default | High |
-| MOB-01..n | Mobile | See [mobile findings](notes/mobile-findings.md) | TBD |
-| ICS-01 | ICS | Docker Desktop for macOS fails to enforce loopback-only binding on port-remapped publishes | High |
-| ICS-02 | ICS | Modbus has no authentication or encryption; write commands processed without credentials | High |
+**Extraction:** `binwalk -e IoTGoat-raspberry-pi2.img` extracted the filesystem to `_IoTGoat-raspberry-pi2.img.extracted/squashfs-root`.
 
-## Repository Structure
+![Figure: Extraction complete, with the squashfs-root path located.](../screenshots/01-iot/04-iot-binwalk-extract.png)
+*Figure: Extraction complete, with the squashfs-root path located.*
 
-```text
-security-domains-lab/
-├── README.md            (this file: executive summary and index)
-├── .gitignore
-├── docs/                (detailed methodology and evidence per domain)
-├── notes/               (findings tables in report-template format)
-├── screenshots/         (numbered evidence images per domain)
-├── configs/             (secure.conf: Mosquitto TLS/auth template, no secrets)
-└── report/              (final consolidated report)
+### Finding IOT-01: Weak Password Hashing Algorithm (MD5-crypt)
+
+- **File:** `etc/shadow`
+- **Detail:** The `root` account hash begins with `$1$` (MD5-crypt) rather than a modern algorithm such as `$6$` (SHA-512-crypt). A second account, `iotgoatuser`, also uses `$1$`.
+- **Impact:** MD5-crypt is computationally inexpensive to attack offline. Because this hash is embedded in the firmware image, it is identical across every device running the same firmware version.
+- **Severity:** High
+- **Recommendation:** Use a modern, salted, computationally expensive hash (SHA-512-crypt, bcrypt, or Argon2) for all stored credentials. Rotate credentials per device rather than relying on a firmware-wide default.
+- **Reference:** OWASP IoT Top 10 — Weak, Guessable, or Hardcoded Passwords
+
+![Figure: Contents of etc/shadow, showing MD5-crypt ($1$) hashes for root and iotgoatuser.](../screenshots/01-iot/05-iot-passwd-shadow.png)
+*Figure: Contents of etc/shadow, showing MD5-crypt ($1$) hashes for root and iotgoatuser.*
+
+### Finding IOT-02: Default Credential Recovered
+
+- **Detail:** Using the Mirai botnet credentials wordlist, bundled with Metasploit at `/usr/share/metasploit-framework/data/wordlists/mirai_pass.txt`, against the extracted `etc/shadow` hash with John the Ripper:
+
+  ```bash
+  john --wordlist=/usr/share/metasploit-framework/data/wordlists/mirai_pass.txt /tmp/iotgoat_hashes.txt
+  ```
+
+  Result: the `iotgoatuser` password was recovered as `7uJMko0vizxv` in under one second against a 62-entry wordlist. This is a documented default credential originating from the leaked Mirai botnet source code, reused intentionally in this training firmware.
+- **Note:** The `root` account hash was not recovered using this wordlist, nor a general 14-million-entry wordlist (`rockyou.txt`). Public write-ups of this exercise indicate root access is intended to be obtained through a different vulnerability, not password cracking.
+- **Impact:** Default or reused IoT credentials are the exact mechanism that allowed the real Mirai botnet to compromise large numbers of devices automatically and at scale.
+- **Severity:** Critical
+- **Recommendation:** Never ship devices with default or hardcoded credentials. Force a credential change on first boot. Disable or randomize any built-in test or maintenance accounts before production release.
+- **Reference:** OWASP IoT Top 10; NIST IoT Security Program
+
+![Figure: John the Ripper set up against the extracted shadow hashes.](../screenshots/01-iot/14-JohnTheRipper.png)
+*Figure: John the Ripper set up against the extracted shadow hashes.*
+
+![Figure: iotgoatuser password successfully cracked.](../screenshots/01-iot/15-PasswordCRACKED.png)
+*Figure: iotgoatuser password successfully cracked.*
+
+### Finding IOT-03: Hardcoded Secrets, Configuration Files, and Startup Services
+
+Checklist performed per the lab's "what to look for" guidance:
+
+```bash
+grep -ri 'password' etc | head -n 20
+find . -name '*.conf' | head -n 20
+find . -name '*.pem' -o -name '*.key'
+ls etc/init.d
 ```
 
-## Notes on Evidence Handling
+| Result | Detail |
+|---|---|
+| Hardcoded password references in config files | [fill in from your screenshot] |
+| Private keys (.pem, .key) found | [fill in] |
+| Unnecessary services in etc/init.d | [fill in — e.g. telnet, debug shells] |
 
-- No firmware images, APK files, password files, or private keys are committed to this repository (see `.gitignore`).
-- Public IP addresses and account credentials have been excluded or blurred in all screenshots.
-- Placeholder fields marked `[fill in]` indicate values that depend on the specific screenshot content and should be completed with the exact figures observed during testing.
+- **Impact:** Anyone with access to the firmware image can read these files directly, without needing to compromise a running device.
+- **Severity:** [fill in based on actual findings — typically Medium to High]
+- **Recommendation:** Remove unnecessary services before production release; never store secrets in plaintext configuration files within the firmware image; use a hardware-backed secure element for key storage where possible.
+
+![Figure: Search for hardcoded passwords and secrets in configuration files.](../screenshots/01-iot/09-iot-search-secrets.png)
+*Figure: Search for hardcoded passwords and secrets in configuration files.*
+
+![Figure: Review of startup scripts in etc/init.d for unnecessary or risky services.](../screenshots/01-iot/10-iot-init-scripts.png)
+*Figure: Review of startup scripts in etc/init.d for unnecessary or risky services.*
+
+## 1.3 MQTT Protocol Test (Plaintext)
+
+Started a subscriber and published test messages:
+
+```bash
+mosquitto_sub -h localhost -t 'home/#' -v
+mosquitto_pub -h localhost -t home/livingroom/temp -m 21.5
+mosquitto_pub -h localhost -t home/door/lock -m unlocked
+```
+
+Both messages arrived at the subscriber in plaintext. Captured in Wireshark on the loopback interface with filter `mqtt`; the topic and message payload were fully readable inside the PUBLISH packet.
+
+**Fields visible in plaintext:** topic string, message payload, QoS level, packet type.
+
+**What an attacker on the same network could learn:** exact sensor readings (for example, temperature) and device state changes (for example, door lock status) in real time, without needing to break any encryption.
+
+![Figure: Subscriber terminal receiving both published MQTT messages in plain text.](../screenshots/01-iot/10-iot-mosquitto-subscriber.png)
+*Figure: Subscriber terminal receiving both published MQTT messages in plain text.*
+
+![Figure: Wireshark capture showing the MQTT topic and message payload fully readable.](../screenshots/01-iot/11-iot-wireshark-mqtt-plaintext.png)
+*Figure: Wireshark capture showing the MQTT topic and message payload fully readable.*
+
+### Finding IOT-04: MQTT Broker Accepts Unauthenticated, Unencrypted Connections by Default
+
+- **Impact:** Any device on the network segment can publish or subscribe to any topic, and any passive observer can read all traffic, including sensitive state such as door lock status.
+- **Severity:** High
+- **Recommendation:** Addressed directly in Section 1.4 below.
+- **Reference:** OWASP IoT Top 10 — Insecure Network Services
+
+## 1.4 MQTT Security Controls
+
+Implemented controls:
+
+1. Created a dedicated MQTT user: `mosquitto_passwd -c /etc/mosquitto/passwd iotuser`
+2. Generated a self-signed TLS certificate:
+
+   ```bash
+   openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt \
+     -days 365 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost'
+   ```
+
+3. Added a secure listener configuration (see `configs/secure.conf` in this repository):
+
+   ```conf
+   listener 8883
+   allow_anonymous false
+   password_file /etc/mosquitto/passwd
+   certfile /etc/mosquitto/certs/server.crt
+   keyfile /etc/mosquitto/certs/server.key
+   ```
+
+4. Restarted the broker and confirmed `active (running)` via `systemctl status`.
+
+**Verification:**
+
+| Test | Result |
+|---|---|
+| Unauthenticated, unencrypted attempt on port 8883 | Failed, as expected |
+| Authenticated attempt with `--cafile`, `-u iotuser`, `-P <password>` | Succeeded |
+| Wireshark capture on `tcp.port == 8883` after the fix | Payload now appears as encrypted TLS Application Data; not readable |
+
+![Figure: Unauthenticated, unencrypted publish attempt failing as expected.](../screenshots/01-iot/12-iot-anonymous-denied.png)
+*Figure: Unauthenticated, unencrypted publish attempt failing as expected.*
+
+![Figure: Wireshark capture on port 8883 after enabling TLS; payload is unreadable.](../screenshots/01-iot/13-iot-wireshark-tls-encrypted.png)
+*Figure: Wireshark capture on port 8883 after enabling TLS; payload is unreadable.*
+
+**Before and after comparison** (strongest evidence in this section):
+
+| Before (Section 1.3) | After (Section 1.4) |
+|---|---|
+| Topic and message readable in plain text | Payload unreadable, encrypted with TLS |
+| `screenshots/01-iot/11-iot-wireshark-mqtt-plaintext.png` | `screenshots/01-iot/13-iot-wireshark-tls-encrypted.png` |
