@@ -316,24 +316,3 @@ Push it to GitHub
 
 mkdir -p security-domains-lab/{screenshots/{00-setup,01-iot,02-mobile,03-ics},notes,configs,report}
 cd security-domains-lab
-# copy each file above into place, then:
-git init
-git add README.md notes configs screenshots report .gitignore
-git commit -m "Add specialized security domains lab evidence"
-git branch -M main
-git remote add origin https://github.com/<your-username>/security-domains-lab.git
-git push -u origin main
-
-Final pre-push check
-
-Every screenshot name follows <number>-<domain>-<short-description>.png and sits in the correct folder
-
-Every terminal screenshot shows the command and its output
-
-No passwords, API keys, private keys, or your public IP are visible
-
-No firmware images, APK files, or key files staged (verify with git status)
-
-Each README figure has a one-sentence caption stating what it proves
-
-Findings tables saved as text in notes/
