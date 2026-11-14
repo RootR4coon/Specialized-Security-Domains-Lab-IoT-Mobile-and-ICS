@@ -1,166 +1,112 @@
-# 1. IoT Security
+# 2. Mobile Security
 
-Back to [README](../README.md). Findings table: [notes/iot-findings.md](../notes/iot-findings.md).
+Back to [README](../README.md). Findings table: [notes/mobile-findings.md](../notes/mobile-findings.md).
 
-## 1.1 Shodan Exposure Assessment (Passive)
+## 2.1 Device Preparation
 
-Search query: `product:mosquitto`
+Android Studio AVD created (Pixel device, Google APIs system image) and launched. `adb devices` confirmed the emulator as authorized and connected.
 
-| Item | Result |
-|---|---|
-| Total result count | [fill in from your screenshot] |
-| Top 3 countries | [fill in from Top Countries panel] |
-| Own public IP search result | [fill in — exposed or nothing found] |
+![Figure: Android emulator running and authorized via adb devices.](../screenshots/02-mobile/01-mobile-emulator-running.png)
+*Figure: Android emulator running and authorized via adb devices.*
 
-**Risk note:** Default ports with no authentication allow any internet-wide scanner, not just a targeted attacker, to discover and potentially interact with exposed IoT devices at scale. This is the same exposure pattern that allowed the Mirai botnet to compromise large numbers of devices automatically.
+**Note on a resolved setup issue:** Earlier in this lab, ADB repeatedly reported `device unauthorized`, with the on-device confirmation dialog disappearing before it could be approved. This was resolved by regenerating the ADB key pair, revoking old USB debugging authorizations on the device, and cold-booting the AVD (rather than resuming from a snapshot) before reconnecting.
 
-![Figure: Shodan search results for product:mosquitto, showing total count and Top Countries panel.](../screenshots/01-iot/01-iot-shodan-mosquitto-results.png)
-*Figure: Shodan search results for product:mosquitto, showing total count and Top Countries panel.*
+## 2.2 Static Analysis with MobSF
 
-## 1.2 Firmware Analysis (OWASP IoTGoat)
-
-**Target:** `IoTGoat-raspberry-pi2.img`, obtained from the OWASP IoTGoat GitHub Releases page.
-
-**Identification (`binwalk`):** Identified a flattened device tree and a SquashFS filesystem at offset `29360128` (`0x1C00000`), little endian, version 4.0, xz compression, 3,946,402 bytes, 1,333 inodes, blocksize 262,144 bytes, created 2019-01-30.
-
-![Figure: binwalk output identifying the Linux kernel and SquashFS filesystem inside the firmware image.](../screenshots/01-iot/03-iot-binwalk-identify.png)
-*Figure: binwalk output identifying the Linux kernel and SquashFS filesystem inside the firmware image.*
-
-**Extraction:** `binwalk -e IoTGoat-raspberry-pi2.img` extracted the filesystem to `_IoTGoat-raspberry-pi2.img.extracted/squashfs-root`.
-
-![Figure: Extraction complete, with the squashfs-root path located.](../screenshots/01-iot/04-iot-binwalk-extract.png)
-*Figure: Extraction complete, with the squashfs-root path located.*
-
-### Finding IOT-01: Weak Password Hashing Algorithm (MD5-crypt)
-
-- **File:** `etc/shadow`
-- **Detail:** The `root` account hash begins with `$1$` (MD5-crypt) rather than a modern algorithm such as `$6$` (SHA-512-crypt). A second account, `iotgoatuser`, also uses `$1$`.
-- **Impact:** MD5-crypt is computationally inexpensive to attack offline. Because this hash is embedded in the firmware image, it is identical across every device running the same firmware version.
-- **Severity:** High
-- **Recommendation:** Use a modern, salted, computationally expensive hash (SHA-512-crypt, bcrypt, or Argon2) for all stored credentials. Rotate credentials per device rather than relying on a firmware-wide default.
-- **Reference:** OWASP IoT Top 10 — Weak, Guessable, or Hardcoded Passwords
-
-![Figure: Contents of etc/shadow, showing MD5-crypt ($1$) hashes for root and iotgoatuser.](../screenshots/01-iot/05-iot-passwd-shadow.png)
-*Figure: Contents of etc/shadow, showing MD5-crypt ($1$) hashes for root and iotgoatuser.*
-
-### Finding IOT-02: Default Credential Recovered
-
-- **Detail:** Using the Mirai botnet credentials wordlist, bundled with Metasploit at `/usr/share/metasploit-framework/data/wordlists/mirai_pass.txt`, against the extracted `etc/shadow` hash with John the Ripper:
-
-  ```bash
-  john --wordlist=/usr/share/metasploit-framework/data/wordlists/mirai_pass.txt /tmp/iotgoat_hashes.txt
-  ```
-
-  Result: the `iotgoatuser` password was recovered as `7uJMko0vizxv` in under one second against a 62-entry wordlist. This is a documented default credential originating from the leaked Mirai botnet source code, reused intentionally in this training firmware.
-- **Note:** The `root` account hash was not recovered using this wordlist, nor a general 14-million-entry wordlist (`rockyou.txt`). Public write-ups of this exercise indicate root access is intended to be obtained through a different vulnerability, not password cracking.
-- **Impact:** Default or reused IoT credentials are the exact mechanism that allowed the real Mirai botnet to compromise large numbers of devices automatically and at scale.
-- **Severity:** Critical
-- **Recommendation:** Never ship devices with default or hardcoded credentials. Force a credential change on first boot. Disable or randomize any built-in test or maintenance accounts before production release.
-- **Reference:** OWASP IoT Top 10; NIST IoT Security Program
-
-![Figure: John the Ripper set up against the extracted shadow hashes.](../screenshots/01-iot/14-JohnTheRipper.png)
-*Figure: John the Ripper set up against the extracted shadow hashes.*
-
-![Figure: iotgoatuser password successfully cracked.](../screenshots/01-iot/15-PasswordCRACKED.png)
-*Figure: iotgoatuser password successfully cracked.*
-
-### Finding IOT-03: Hardcoded Secrets, Configuration Files, and Startup Services
-
-Checklist performed per the lab's "what to look for" guidance:
+Ran MobSF via Docker:
 
 ```bash
-grep -ri 'password' etc | head -n 20
-find . -name '*.conf' | head -n 20
-find . -name '*.pem' -o -name '*.key'
-ls etc/init.d
+docker run -it --rm -p 8000:8000 opensecurity/mobile-security-framework-mobsf:latest
 ```
 
-| Result | Detail |
+Uploaded the DIVA APK and reviewed the generated report.
+
+![Figure: MobSF running and ready for upload.](../screenshots/02-mobile/17-mobile-mobsf-home.png)
+*Figure: MobSF running and ready for upload.*
+
+![Figure: MobSF interface open in the browser at localhost:8000.](../screenshots/02-mobile/18-mobile-mobsf-browser.png)
+*Figure: MobSF interface open in the browser at localhost:8000.*
+
+![Figure: MobSF security scoreboard for the analyzed APK.](../screenshots/02-mobile/20-mobile-mobsf-scoreboard.png)
+*Figure: MobSF security scoreboard for the analyzed APK.*
+
+| Report section | Finding |
 |---|---|
-| Hardcoded password references in config files | [fill in from your screenshot] |
-| Private keys (.pem, .key) found | [fill in] |
-| Unnecessary services in etc/init.d | [fill in — e.g. telnet, debug shells] |
+| Permissions | [fill in — dangerous permissions the app does not need] |
+| Manifest Analysis | [fill in — debuggable, allowBackup, exported components] |
+| Code Analysis | [fill in — hardcoded secrets, weak crypto, insecure storage] |
+| Network Security | [fill in — cleartext traffic allowed, certificate validation] |
+| MobSF security score | [fill in] |
 
-- **Impact:** Anyone with access to the firmware image can read these files directly, without needing to compromise a running device.
-- **Severity:** [fill in based on actual findings — typically Medium to High]
-- **Recommendation:** Remove unnecessary services before production release; never store secrets in plaintext configuration files within the firmware image; use a hardware-backed secure element for key storage where possible.
+## 2.3 Dynamic Testing with Frida and Objection
 
-![Figure: Search for hardcoded passwords and secrets in configuration files.](../screenshots/01-iot/09-iot-search-secrets.png)
-*Figure: Search for hardcoded passwords and secrets in configuration files.*
-
-![Figure: Review of startup scripts in etc/init.d for unnecessary or risky services.](../screenshots/01-iot/10-iot-init-scripts.png)
-*Figure: Review of startup scripts in etc/init.d for unnecessary or risky services.*
-
-## 1.3 MQTT Protocol Test (Plaintext)
-
-Started a subscriber and published test messages:
+Confirmed Frida server and client communication:
 
 ```bash
-mosquitto_sub -h localhost -t 'home/#' -v
-mosquitto_pub -h localhost -t home/livingroom/temp -m 21.5
-mosquitto_pub -h localhost -t home/door/lock -m unlocked
+frida-ps -U
 ```
 
-Both messages arrived at the subscriber in plaintext. Captured in Wireshark on the loopback interface with filter `mqtt`; the topic and message payload were fully readable inside the PUBLISH packet.
+Returned the live process list from the emulator.
 
-**Fields visible in plaintext:** topic string, message payload, QoS level, packet type.
+![Figure: frida-ps -U output, confirming Frida server and client communication with the emulator.](../screenshots/02-mobile/24-mobile-frida-ps.png)
+*Figure: frida-ps -U output, confirming Frida server and client communication with the emulator.*
 
-**What an attacker on the same network could learn:** exact sensor readings (for example, temperature) and device state changes (for example, door lock status) in real time, without needing to break any encryption.
+Explored the UnCrackable Level 1 app with Objection:
 
-![Figure: Subscriber terminal receiving both published MQTT messages in plain text.](../screenshots/01-iot/10-iot-mosquitto-subscriber.png)
-*Figure: Subscriber terminal receiving both published MQTT messages in plain text.*
+```bash
+objection -g owasp.mstg.uncrackable1 explore
+```
 
-![Figure: Wireshark capture showing the MQTT topic and message payload fully readable.](../screenshots/01-iot/11-iot-wireshark-mqtt-plaintext.png)
-*Figure: Wireshark capture showing the MQTT topic and message payload fully readable.*
+Ran `android hooking list activities`, `android hooking list classes`, `android keystore list`, and `env` inside the session.
 
-### Finding IOT-04: MQTT Broker Accepts Unauthenticated, Unencrypted Connections by Default
+**Learning point confirmed:** UnCrackable Level 1 performs root detection. The intended exercise, locating a hidden secret, is documented in the official OWASP MASTG write-up.
 
-- **Impact:** Any device on the network segment can publish or subscribe to any topic, and any passive observer can read all traffic, including sensitive state such as door lock status.
-- **Severity:** High
-- **Recommendation:** Addressed directly in Section 1.4 below.
-- **Reference:** OWASP IoT Top 10 — Insecure Network Services
+![Figure: Objection session exploring the UnCrackable Level 1 app.](../screenshots/02-mobile/19-mobile-uncrackable.png)
+*Figure: Objection session exploring the UnCrackable Level 1 app.*
 
-## 1.4 MQTT Security Controls
+## 2.4 Component Assessment with Drozer
 
-Implemented controls:
+Installed the Drozer client (`pipx install drozer`, version 3.1.0, Python 3.9.6) and the Drozer Agent APK (current releases maintained under `ReversecLabs/drozer-agent`, following the project's rename from WithSecureLabs/mwrlabs).
 
-1. Created a dedicated MQTT user: `mosquitto_passwd -c /etc/mosquitto/passwd iotuser`
-2. Generated a self-signed TLS certificate:
+```bash
+adb forward tcp:31415 tcp:31415
+drozer console connect
+run app.package.list -f diva
+run app.package.attacksurface jakhar.aseem.diva
+run app.activity.info -a jakhar.aseem.diva
+```
 
-   ```bash
-   openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt \
-     -days 365 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost'
-   ```
-
-3. Added a secure listener configuration (see `configs/secure.conf` in this repository):
-
-   ```conf
-   listener 8883
-   allow_anonymous false
-   password_file /etc/mosquitto/passwd
-   certfile /etc/mosquitto/certs/server.crt
-   keyfile /etc/mosquitto/certs/server.key
-   ```
-
-4. Restarted the broker and confirmed `active (running)` via `systemctl status`.
-
-**Verification:**
-
-| Test | Result |
+| Component type | Exported count |
 |---|---|
-| Unauthenticated, unencrypted attempt on port 8883 | Failed, as expected |
-| Authenticated attempt with `--cafile`, `-u iotuser`, `-P <password>` | Succeeded |
-| Wireshark capture on `tcp.port == 8883` after the fix | Payload now appears as encrypted TLS Application Data; not readable |
+| Activities | [fill in] |
+| Services | [fill in] |
+| Providers | [fill in] |
 
-![Figure: Unauthenticated, unencrypted publish attempt failing as expected.](../screenshots/01-iot/12-iot-anonymous-denied.png)
-*Figure: Unauthenticated, unencrypted publish attempt failing as expected.*
+**Why this matters:** Exported components without permission checks can be invoked directly by any other application on the device, or via `adb`, bypassing the app's intended entry points and potentially exposing sensitive functionality or data.
 
-![Figure: Wireshark capture on port 8883 after enabling TLS; payload is unreadable.](../screenshots/01-iot/13-iot-wireshark-tls-encrypted.png)
-*Figure: Wireshark capture on port 8883 after enabling TLS; payload is unreadable.*
+![Figure: Drozer client installation.](../screenshots/02-mobile/22-mobile-drozer-client.png)
+*Figure: Drozer client installation.*
 
-**Before and after comparison** (strongest evidence in this section):
+![Figure: Drozer console connected to the Agent on the emulator.](../screenshots/02-mobile/23-mobile-drozer-connected.png)
+*Figure: Drozer console connected to the Agent on the emulator.*
 
-| Before (Section 1.3) | After (Section 1.4) |
+## 2.5 Authentication Review and MASVS Mapping
+
+| Checklist item | Finding | Evidence |
+|---|---|---|
+| Credentials stored in plain text (shared preferences, SQLite, files) | [fill in] | |
+| Credentials written to logs (`adb logcat \| grep -i pass`) | [fill in] | |
+| Hardcoded keys or tokens in code | [fill in; cross-reference MobSF Code Analysis] | |
+| Login works without server-side validation | [fill in] | |
+| Sensitive data copied to clipboard or backups | [fill in] | |
+
+### Secure Development Practices (OWASP MASVS)
+
+| MASVS Area | Secure Practice |
 |---|---|
-| Topic and message readable in plain text | Payload unreadable, encrypted with TLS |
-| `screenshots/01-iot/11-iot-wireshark-mqtt-plaintext.png` | `screenshots/01-iot/13-iot-wireshark-tls-encrypted.png` |
+| Storage | Use Android Keystore and encrypted storage; never plain text |
+| Crypto | Use modern algorithms; no hardcoded keys |
+| Auth | Validate on the server; use short-lived tokens; use biometric prompts |
+| Network | Enforce TLS with certificate validation; disable cleartext traffic |
+| Platform | Do not export components unnecessarily; set `allowBackup=false` |
+| Resilience | Disable debugging in release builds |
