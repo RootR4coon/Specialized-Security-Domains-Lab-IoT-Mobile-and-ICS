@@ -76,15 +76,6 @@ Ran `android hooking list activities`, `android hooking list classes`, `android 
 
 **Learning point confirmed:** UnCrackable Level 1 performs root detection. The intended exercise, locating a hidden secret, is documented in the official OWASP MASTG write-up.
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/261115aa-eec8-4f58-a4ef-580a01417013"
-      <br><sub>Uncrackable success</sub>
-    </td>
-  </tr>
-</table>
-
 ## 2.4 Component Assessment with Drozer
 
 Installed the Drozer client (`pipx install drozer`, version 3.1.0, Python 3.9.6) and the Drozer Agent APK (current releases maintained under `ReversecLabs/drozer-agent`, following the project's rename from WithSecureLabs/mwrlabs).
