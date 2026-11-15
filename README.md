@@ -79,13 +79,27 @@ Setup and tooling reference: [docs/setup.md](docs/setup.md).
 
 ```text
 security-domains-lab/
-├── README.md            (this file: executive summary and index)
+├── README.md
 ├── .gitignore
-├── docs/                (detailed methodology and evidence per domain)
-├── notes/               (findings tables in report-template format)
-├── screenshots/         (numbered evidence images per domain)
-├── configs/             (secure.conf: Mosquitto TLS/auth template, no secrets)
-└── report/              (final consolidated report)
+├── docs/
+│   ├── 01-iot.md
+│   ├── 02-mobile.md
+│   ├── 03-ics.md
+│   ├── setup.md
+│   └── screenshot-inventory.md
+├── notes/
+│   ├── iot-findings.md
+│   ├── mobile-findings.md
+│   └── ics-findings.md
+├── screenshots/
+│   ├── 00-setup/
+│   ├── 01-iot/
+│   ├── 02-mobile/
+│   └── 03-ics/
+├── configs/
+│   └── secure.conf
+└── report/
+    └── report.md
 ```
 
 ## Notes on Evidence Handling
