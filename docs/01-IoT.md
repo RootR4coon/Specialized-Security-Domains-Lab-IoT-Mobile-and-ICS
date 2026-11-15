@@ -83,11 +83,15 @@ Search query: `product:mosquitto`
 <table>
   <tr>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/c8b57aa6-5664-4378-a034-e16fbb36cdfd"
+      <img src="https://github.com/user-attachments/assets/f0091ac0-b50e-46a7-8af8-24805fd2ff7b" />
+      <br><sub>Search for any password or secret</sub>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/c8b57aa6-5664-4378-a034-e16fbb36cdfd" />
       <br><sub>John The Ripper</sub>
     </td>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/b1a4aa66-7e8b-47b8-9a1f-88083579fc46"
+      <img src="https://github.com/user-attachments/assets/b1a4aa66-7e8b-47b8-9a1f-88083579fc46" />
       <br><sub>Password CRACKED</sub>
     </td>
   </tr>
