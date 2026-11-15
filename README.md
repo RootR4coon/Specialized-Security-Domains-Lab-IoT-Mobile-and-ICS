@@ -2,6 +2,11 @@
 
 A hands-on defensive security assessment across three domains — Internet of Things (IoT), Mobile, and Industrial Control Systems (ICS) — performed against intentionally vulnerable training targets and simulated devices in an isolated lab environment.
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/70a3d2f6-0c2b-4d67-a45c-56f65cfaba3d" />
+</p>
+<p align="center"><sub><i>The planned architecture. I analysed IoT, mobile- and ICS security</i></sub></p>
+
 ## Executive Summary
 
 The assessment produced eight documented findings across three domains. The highest-impact results:
