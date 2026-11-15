@@ -5,7 +5,7 @@ A hands-on defensive security assessment across three domains — Internet of Th
 <p align="center">
   <img src="https://github.com/user-attachments/assets/70a3d2f6-0c2b-4d67-a45c-56f65cfaba3d" />
 </p>
-<p align="center"><sub><i>The planned architecture. I analysed IoT, mobile- and ICS security</i></sub></p>
+<p align="center"><sub><i>The planned architecture. Everything was deployed and IoT, mobile- and ICS security were analyzed</i></sub></p>
 
 ## Executive Summary
 
